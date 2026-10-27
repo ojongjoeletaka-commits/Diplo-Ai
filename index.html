@@ -1,0 +1,271 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deep Blue AI</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #06152e;
+      color: white;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .app {
+      max-width: 700px;
+      margin: 20px auto;
+      background: #10264a;
+      border: 1px solid #234d82;
+      border-radius: 18px;
+      padding: 22px;
+    }
+    h1 { color: #52c8ff; text-align: center; }
+    .subtitle { text-align: center; color: #c4d8f5; }
+    #chat {
+      height: 350px;
+      overflow-y: auto;
+      background: #071a36;
+      border-radius: 12px;
+      padding: 14px;
+      margin: 20px 0;
+    }
+    .message {
+      padding: 12px;
+      border-radius: 10px;
+      margin: 10px 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+    .user { background: #174d86; }
+    .ai { background: #173458; }
+    textarea {
+      width: 100%;
+      min-height: 85px;
+      resize: vertical;
+      padding: 13px;
+      border-radius: 10px;
+      border: 1px solid #426b9b;
+      background: #071a36;
+      color: white;
+      font-size: 16px;
+    }
+    button {
+      background: #0789e8;
+      color: white;
+      border: none;
+      border-radius: 9px;
+      padding: 13px 18px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:disabled { opacity: .5; }
+    .secondary { background: #29466c; }
+    .note { font-size: 13px; color: #c4d8f5; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Deep Blue AI</h1>
+    <p class="subtitle">Your smart assistant for questions and mathematics</p>
+
+    <div id="chat" aria-live="polite">
+      <div class="message ai">
+        Hello! I am Deep Blue AI.
+
+        Ask me a question, solve a math problem,
+        or ask me the meaning of a word.
+
+        Try: 25 × 8 or Define intelligence.
+      </div>
+    </div>
+
+    <textarea id="question"
+      placeholder="Type your question or math problem..."></textarea>
+
+    <button id="send" onclick="askAI()">Ask Deep Blue AI</button>
+    <button class="secondary" onclick="clearChat()">Clear Chat</button>
+
+    <p class="note">
+      Math and basic definitions work offline. For other questions,
+      connect an AI service to enable intelligent answers.
+    </p>
+  </main>
+
+  <script>
+    const input = document.getElementById("question");
+    const chat = document.getElementById("chat");
+    const send = document.getElementById("send");
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = "message " + type;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function calculateMath(text) {
+      let s = text.toLowerCase()
+        .replace(/,/g, "")
+        .replace(/×/g, "*")
+        .replace(/÷/g, "/")
+        .replace(/[−–]/g, "-")
+        .replace(/\bmultiplied by\b/g, "*")
+        .replace(/\btimes\b/g, "*")
+        .replace(/\bdivided by\b/g, "/")
+        .replace(/\bplus\b/g, "+")
+        .replace(/\bminus\b/g, "-")
+        .replace(/\binto\b/g, "*")
+        .replace(/\bwhat is\b/g, "")
+        .replace(/\bcalculate\b/g, "")
+        .replace(/\bsolve\b/g, "")
+        .replace(/[?=]/g, "")
+        .trim();
+
+      if (!/^[\d+\-*/().%\s]+$/.test(s) ||
+          !/\d/.test(s) ||
+          !/[+\-*/%]/.test(s)) return null;
+
+      try {
+        const tokens = s.match(/\d+(?:\.\d+)?|[+\-*/()%]/g);
+        if (!tokens || tokens.join("") !== s.replace(/\s/g, ""))
+          return null;
+
+        let pos = 0;
+
+        function expression() {
+          let value = term();
+          while (tokens[pos] === "+" || tokens[pos] === "-") {
+            const op = tokens[pos++];
+            const right = term();
+            value = op === "+" ? value + right : value - right;
+          }
+          return value;
+        }
+
+        function term() {
+          let value = factor();
+          while (["*", "/", "%"].includes(tokens[pos])) {
+            const op = tokens[pos++];
+            const right = factor();
+            if ((op === "/" || op === "%") && right === 0)
+              throw Error("Cannot divide by zero.");
+            if (op === "*") value *= right;
+            if (op === "/") value /= right;
+            if (op === "%") value %= right;
+          }
+          return value;
+        }
+
+        function factor() {
+          if (tokens[pos] === "-") {
+            pos++;
+            return -factor();
+          }
+          if (tokens[pos] === "+") {
+            pos++;
+            return factor();
+          }
+          if (tokens[pos] === "(") {
+            pos++;
+            const value = expression();
+            if (tokens[pos++] !== ")") throw Error("Check your brackets.");
+            return value;
+          }
+          const token = tokens[pos++];
+          if (!token || !/^\d/.test(token))
+            throw Error("Check your calculation.");
+          return Number(token);
+        }
+
+        const result = expression();
+        if (pos !== tokens.length || !Number.isFinite(result))
+          return "Please check your math expression.";
+
+        return "Answer: " + Number(result.toPrecision(12));
+      } catch (error) {
+        return error.message || "Please check your math problem.";
+      }
+    }
+
+    const definitions = {
+      intelligence: "The ability to learn, understand, reason, and solve problems.",
+      computer: "An electronic device that processes data and performs tasks.",
+      mathematics: "The study of numbers, quantities, shapes, and patterns.",
+      science: "The systematic study of the natural world through observation and experiments.",
+      artificial: "Made or produced by humans rather than occurring naturally.",
+      honesty: "The quality of being truthful and sincere.",
+      education: "The process of gaining knowledge, skills, and understanding."
+    };
+
+    function answerQuestion(question) {
+      const math = calculateMath(question);
+      if (math !== null) return math;
+
+      const q = question.toLowerCase().trim();
+
+      if (/^(hi|hello|hey)\b/.test(q))
+        return "Hello! Welcome to Deep Blue AI. What would you like to know?";
+
+      if (/\b(who are you|your name)\b/.test(q))
+        return "I am Deep Blue AI, your personal question and math assistant.";
+
+      if (/\b(help|what can you do)\b/.test(q))
+        return "I can solve arithmetic, explain basic definitions, and answer simple built-in questions. Connect an AI service for broader knowledge.";
+
+      if (/\btime\b/.test(q))
+        return "The time on your device is " + new Date().toLocaleTimeString();
+
+      if (/\bdate\b/.test(q))
+        return "Today's date is " + new Date().toLocaleDateString();
+
+      for (const word in definitions) {
+        if (q.includes(word) && /\b(define|meaning|definition|what is|what does)\b/.test(q))
+          return word.charAt(0).toUpperCase() + word.slice(1) + ": " + definitions[word];
+      }
+
+      return "I need an online AI service to answer this question intelligently. This version can solve math problems and answer some basic questions offline.";
+    }
+
+    function askAI() {
+      const question = input.value.trim();
+      if (!question) {
+        addMessage("Please type a question first.", "ai");
+        return;
+      }
+
+      addMessage(question, "user");
+      input.value = "";
+      send.disabled = true;
+
+      try {
+        const answer = answerQuestion(question);
+        addMessage(answer, "ai");
+      } catch (error) {
+        addMessage("Sorry, something went wrong. Please try again.", "ai");
+      } finally {
+        send.disabled = false;
+        input.focus();
+      }
+    }
+
+    function clearChat() {
+      chat.replaceChildren();
+      addMessage("Chat cleared. What would you like to ask?", "ai");
+    }
+
+    input.addEventListener("keydown", function(event) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        askAI();
+      }
+    });
+  </script>
+</body>
+</html>
